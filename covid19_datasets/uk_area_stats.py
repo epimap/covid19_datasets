@@ -38,7 +38,7 @@ def _load_england_cases_dataset(area_type):
     _log.info("Loading dataset from " + ENGLAND_CASES_PATH)
     df = pd.read_csv(ENGLAND_CASES_PATH.replace("TOREPLACE", area_type))
     _log.info("Loaded")
-
+    df = df[df["areaCode"].str.startswith("E")]  
     df[DATE_COLUMN_NAME] = pd.to_datetime(df["date"].astype(str))
 
     # Convert so that
