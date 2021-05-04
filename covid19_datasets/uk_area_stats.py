@@ -7,10 +7,10 @@ import logging
 _log = logging.getLogger(__name__)
 
 
-ENGLAND_CASES_PATH = 'https://api.coronavirus.data.gov.uk/v2/data?areaType=TOREPLACE&metric=cumCasesBySpecimenDate&metric=newCasesBySpecimenDate&metric=cumCasesBySpecimenDateRate&format=csv' # New link as of 29/4/21
+UK_CASES_PATH = 'https://api.coronavirus.data.gov.uk/v2/data?areaType=TOREPLACE&metric=cumCasesBySpecimenDate&metric=newCasesBySpecimenDate&metric=cumCasesBySpecimenDateRate&format=csv' # New link as of 29/4/21
 ENGLAND_DEATHS_PATH = 'https://c19downloads.azureedge.net/downloads/csv/coronavirus-deaths_latest.csv'  # TODO: This has been deprecated, update to new dashboard source
 
-WALES_PATH = 'http://www2.nphs.wales.nhs.uk:8080/CommunitySurveillanceDocs.nsf/61c1e930f9121fd080256f2a004937ed/77fdb9a33544aee88025855100300cab/$FILE/Rapid%20COVID-19%20surveillance%20data.xlsx'
+WALES_PATH = 'http://www2.nphs.wales.nhs.uk:8080/CommunitySurveillanceDocs.nsf/61c1e930f9121fd080256f2a004937ed/77fdb9a33544aee88025855100300cab/$FILE/Rapid%20COVID-19%20surveillance%20data.xlsx' # This has been deprecated.
 
 SCOTLAND_PATH = 'https://raw.githubusercontent.com/DataScienceScotland/COVID-19-Management-Information/master/export/health-boards/cumulative-cases.csv'
 
@@ -34,11 +34,11 @@ def _backfill_missing_data(df):
     return df
 
 
-def _load_england_cases_dataset(area_type):
-    _log.info("Loading dataset from " + ENGLAND_CASES_PATH)
-    df = pd.read_csv(ENGLAND_CASES_PATH.replace("TOREPLACE", area_type))
+def _load_cases_dataset(area_type, country="England"):
+    _log.info(f"Loading {country} dataset from " + UK_CASES_PATH)
+    df = pd.read_csv(UK_CASES_PATH.replace("TOREPLACE", area_type))
     _log.info("Loaded")
-    df = df[df["areaCode"].str.startswith("E")]  
+    df = df[df["areaCode"].str.startswith(country[0])]  
     df[DATE_COLUMN_NAME] = pd.to_datetime(df["date"].astype(str))
 
     # Convert so that
@@ -46,7 +46,7 @@ def _load_england_cases_dataset(area_type):
     # Each column corresponds to a date
     df['Daily lab-confirmed cases'] = df['newCasesBySpecimenDate'].astype('float')#
     df["Area name"] = df["areaName"]
-    df['Country'] = 'England'
+    df['Country'] = country
 
     df = df.pivot_table(index=['Country', 'Area name'], columns=DATE_COLUMN_NAME,
                         values='Daily lab-confirmed cases')
@@ -56,6 +56,7 @@ def _load_england_cases_dataset(area_type):
 
 
 def _load_wales_datasets():
+    # This data doesn't seem to be updated anymore as of 11/4/21
     _log.info("Loading dataset from " + WALES_PATH)
     xlsx = pd.ExcelFile(WALES_PATH)
     _log.info("Loaded")
@@ -126,10 +127,11 @@ class UKCovid19Data:
         """
         if UKCovid19Data.england_cases_data is None or force_load or UKCovid19Data.england_area_type != england_area_type:
             UKCovid19Data.england_area_type = england_area_type
-            UKCovid19Data.england_cases_data = _load_england_cases_dataset(england_area_type)
+            UKCovid19Data.england_cases_data = _load_cases_dataset(england_area_type)
 
         if UKCovid19Data.wales_cases_data is None or UKCovid19Data.wales_tests_data is None or force_load:
-            UKCovid19Data.wales_cases_data, UKCovid19Data.wales_tests_data = _load_wales_datasets()
+            _, UKCovid19Data.wales_tests_data = _load_wales_datasets()
+            UKCovid19Data.wales_cases_data = _load_cases_dataset(england_area_type, "Wales")
 
         if UKCovid19Data.scotland_cases_data is None or force_load:
             UKCovid19Data.scotland_cases_data = _load_scotland_cases_dataset()
